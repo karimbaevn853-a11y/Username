@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Username Market & P2P Wheel</title>
+  <title>Username & P2P Wheel</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
@@ -53,7 +53,6 @@
       font-size: 20px;
       box-shadow: 0 8px 16px rgba(59, 130, 246, 0.45), inset 0 2px 3px rgba(255, 255, 255, 0.4);
     }
-    .brand h1 { font-size: 16px; font-weight: 800; }
     .brand small { display: block; font-size: 11px; color: var(--muted); }
 
     .wallet-box {
@@ -316,12 +315,11 @@
     <div class="brand">
       <div class="brand-3d-icon">💠</div>
       <div>
-        <h1>3D User Market</h1>
-        <small id="userBadge">Mini App • Stars Wallet</small>
+        <small id="userBadge">ID: 999001 • Stars</small>
       </div>
     </div>
-    <div class="wallet-box">
-      <div class="wallet-label">Баланс кошелька</div>
+    <div class="wallet-box" onclick="topUpStars()" style="cursor:pointer;">
+      <div class="wallet-label">Баланс (+ Stars)</div>
       <div class="wallet-val">⭐ <span id="walletBalance">0</span></div>
     </div>
   </div>
@@ -357,7 +355,7 @@
       <div class="bet-row">
         <input id="p2pBetInput" type="number" min="1" placeholder="Ставка в ⭐ (напр. 1, 2...)" />
         <button class="btn-3d btn-gold" onclick="placeP2PBet()">Поставить ⭐</button>
-        <button class="btn-3d btn-blue" onclick="addDemoOpponent()">+ Игрок (тест)</button>
+        <button class="btn-3d btn-blue" onclick="addDemoOpponent()">+ Игрок</button>
         <button class="btn-3d btn-green" onclick="spinWheel()">Крутить</button>
       </div>
 
@@ -451,9 +449,9 @@
     tg.expand();
 
     const currentUser = tg.initDataUnsafe?.user || { id: 999001, first_name: "Player", username: "player" };
-    document.getElementById("userBadge").innerText = `ID: ${currentUser.id} • Wallet Stars`;
+    document.getElementById("userBadge").innerText = `ID: ${currentUser.id} • Stars`;
 
-    const STORAGE_KEY = `miniapp_3d_state_${currentUser.id}`;
+    const STORAGE_KEY = `miniapp_stars_state_${currentUser.id}`;
     const WHEEL_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#a855f7", "#ef4444", "#06b6d4"];
 
     let activeTab = "market";
@@ -493,9 +491,15 @@
       document.getElementById("walletBalance").innerText = state.balance;
     }
 
+    function topUpStars() {
+      state.balance += 100;
+      saveState();
+      tg.showAlert("+100 ⭐ добавлено на ваш баланс!");
+    }
+
     function spendFromBalance(amount) {
       if (state.balance < amount) {
-        tg.showAlert(`Недостаточно Stars на балансе! Нужно ${amount} ⭐, доступно ${state.balance} ⭐.`);
+        tg.showAlert(`Недостаточно Stars! Нужно ${amount} ⭐, на балансе ${state.balance} ⭐.`);
         return false;
       }
       state.balance -= amount;
