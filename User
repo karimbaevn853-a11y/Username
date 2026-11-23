@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Username Market & Auction</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #0f172a);
+      --secondary-bg: var(--tg-theme-secondary-bg-color, #1e293b);
+      --card-bg: #243044;
+      --text: var(--tg-theme-text-color, #f8fafc);
+      --hint: var(--tg-theme-hint-color, #94a3b8);
+      --btn: var(--tg-theme-button-color, #3b82f6);
+      --btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --gold: #f59e0b;
+      --nft: #a855f7;
+      --auction: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 14px; padding-bottom: 86px; }
+
+    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .header h1 { font-size: 19px; font-weight: 700; }
+    .stars-pill { background: rgba(245, 158, 11, 0.16); color: var(--gold); padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+
+    /* Asosiy bo'limlar: Маркет vs Аукцион */
+    .main-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--secondary-bg); padding: 4px; border-radius: 14px; margin-bottom: 14px; }
+    .main-tab { border: none; background: transparent; color: var(--hint); padding: 10px; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .main-tab.active { background: var(--btn); color: var(--btn-text); }
+
+    .search-box { width: 100%; padding: 11px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: var(--secondary-bg); color: var(--text); font-size: 14px; margin-bottom: 12px; outline: none; }
+
+    /* Market ichidagi NFT / Без NFT filtrlari */
+    .sub-filters { display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 2px; }
+    .sub-btn { background: var(--secondary-bg); color: var(--hint); border: 1px solid rgba(255,255,255,0.06); padding: 8px 13px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .sub-btn.active { background: #ffffff; color: #0f172a; border-color: #ffffff; }
+
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .card { background: var(--secondary-bg); border-radius: 16px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.05); }
+    .card-left { flex: 1; min-width: 0; }
+    .card-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .username-title { font-size: 16px; font-weight: 700; }
+
+    .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 8px; }
+    .tag-nft { background: rgba(168, 85, 247, 0.18); color: #d8b4fe; }
+    .tag-non-nft { background: rgba(59, 130, 246, 0.18); color: #93c5fd; }
+    .tag-timer { background: rgba(16, 185, 129, 0.18); color: #6ee7b7; }
+
+    .card-desc { font-size: 12px; color: var(--hint); margin-bottom: 4px; }
+    .card-meta { font-size: 11px; color: var(--hint); }
+
+    .action-btn { border: none; padding: 10px 13px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .buy-btn { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+    .bid-btn { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+
+    .fab { position: fixed; bottom: 16px; left: 14px; right: 14px; background: var(--btn); color: var(--btn-text); border: none; padding: 14px; border-radius: 14px; font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+
+    /* Modal oynalar */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.72); align-items: center; justify-content: center; padding: 16px; z-index: 100; }
+    .modal.open { display: flex; }
+    .modal-box { background: var(--secondary-bg); width: 100%; max-width: 410px; border-radius: 20px; padding: 20px; }
+    .modal-box h2 { font-size: 18px; margin-bottom: 12px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; color: var(--hint); margin-bottom: 5px; }
+    .field input, .field select { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: var(--bg); color: var(--text); font-size: 14px; outline: none; }
+    .modal-btns { display: flex; gap: 10px; margin-top: 14px; }
+    .modal-btns button { flex: 1; padding: 11px; border-radius: 12px; border: none; font-weight: 700; cursor: pointer; }
+    .btn-cancel { background: rgba(255,255,255,0.1); color: var(--text); }
+    .btn-ok { background: var(--btn); color: var(--btn-text); }
+    .empty { text-align: center; color: var(--hint); padding: 30px 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>💎 Username Market</h1>
+    <span class="stars-pill">⭐ Telegram Stars</span>
+  </div>
+
+  <!-- Asosiy 2 bo'lim -->
+  <div class="main-tabs">
+    <button id="tabMarket" class="main-tab active" onclick="switchSection('market')">🛒 Маркет</button>
+    <button id="tabAuction" class="main-tab" onclick="switchSection('auction')">🔥 Аукцион</button>
+  </div>
+
+  <input type="text" id="searchInput" class="search-box" placeholder="Поиск юзернейма (например: @crypto)..." oninput="render()" />
+
+  <!-- Маркет ichki filtrlari -->
+  <div id="marketFilters" class="sub-filters">
+    <button class="sub-btn active" onclick="setMarketType('all', this)">Все</button>
+    <button class="sub-btn" onclick="setMarketType('nft', this)">🔮 NFT юзернеймы</button>
+    <button class="sub-btn" onclick="setMarketType('non_nft', this)">🔹 Без NFT</button>
+  </div>
+
+  <div id="contentList" class="list"></div>
+
+  <button class="fab" onclick="openCreateModal()">+ Выставить юзернейм</button>
+
+  <!-- Modal 1: Yangi lot yaratish (Маркет yoki Аукцион) -->
+  <div id="createModal" class="modal">
+    <div class="modal-box">
+      <h2>Новый лот</h2>
+      <div class="field">
+        <label>Формат размещения</label>
+        <select id="lotFormat" onchange="toggleAuctionFields()">
+          <option value="market">Маркет (фиксированная цена)</option>
+          <option value="auction">Аукцион (повышение ставок)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Тип юзернейма</label>
+        <select id="lotNftType">
+          <option value="nft">NFT юзернейм (Fragment)</option>
+          <option value="non_nft">Обычный (Без NFT)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Юзернейм (с @)</label>
+        <input type="text" id="lotUsername" placeholder="@my_username" />
+      </div>
+      <div class="field">
+        <label id="priceLabel">Цена (в Stars ⭐)</label>
+        <input type="number" id="lotPrice" placeholder="1000" />
+      </div>
+      <div class="field" id="durationField" style="display:none;">
+        <label>Длительность аукциона (часов)</label>
+        <input type="number" id="lotHours" value="24" min="1" max="168" />
+      </div>
+      <div class="field">
+        <label>Описание</label>
+        <input type="text" id="lotDesc" placeholder="Короткий, чистый, без истории" />
+      </div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeModal('createModal')">Отмена</button>
+        <button class="btn-ok" onclick="submitLot()">Опубликовать</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Auktsionda stavka qo'yish -->
+  <div id="bidModal" class="modal">
+    <div class="modal-box">
+      <h2 id="bidTitle">Сделать ставку</h2>
+      <p id="bidInfo" class="card-desc" style="margin-bottom:12px;"></p>
+      <div class="field">
+        <label>Ваша ставка (в Stars ⭐)</label>
+        <input type="number" id="bidAmount" />
+      </div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeModal('bidModal')">Отмена</button>
+        <button class="btn-ok" onclick="confirmBid()">Поставить ⭐</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    // Backend API manzilingizni kiriting:
+    const API_URL = "https://SIZNING-DOMENINGIZ.uz/api";
+
+    let currentSection = 'market'; // 'market' | 'auction'
+    let marketType = 'all';       // 'all' | 'nft' | 'non_nft'
+    let activeAuctionId = null;
+
+    // Namuna ma'lumotlar (keyinchalik backend bazadan yuklanadi)
+    let marketItems = [
+      { id: 101, username: "@ton_whale", price: 3500, isNft: true, desc: "Коллекционный NFT юзернейм" },
+      { id: 102, username: "@moscow_news", price: 1500, isNft: false, desc: "Отлично подойдёт для медиа или канала" },
+      { id: 103, username: "@x_宝_nft", price: 5000, isNft: true, desc: "Редкий NFT актив" },
+      { id: 104, username: "@shop_uz", price: 700, isNft: false, desc: "Для магазина или бренда" }
+    ];
+
+    let auctionItems = [
+      { id: 201, username: "@vip_club", currentBid: 1200, minStep: 100, isNft: true, endsIn: "05ч 40м", bidsCount: 6, desc: "NFT юзернейм для закрытого клуба" },
+      { id: 202, username: "@ai_studio", currentBid: 900, minStep: 50, isNft: false, endsIn: "12ч 15м", bidsCount: 4, desc: "Обычный юзернейм под AI-проект" }
+    ];
+
+    function switchSection(sec) {
+      currentSection = sec;
+      document.getElementById('tabMarket').classList.toggle('active', sec === 'market');
+      document.getElementById('tabAuction').classList.toggle('active', sec === 'auction');
+      document.getElementById('marketFilters').style.display = sec === 'market' ? 'flex' : 'none';
+      render();
+    }
+
+    function setMarketType(type, btn) {
+      marketType = type;
+      document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function render() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const list = document.getElementById('contentList');
+      list.innerHTML = '';
+
+      if (currentSection === 'market') {
+        const filtered = marketItems.filter(item => {
+          const matchText = item.username.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q);
+          if (!matchText) return false;
+          if (marketType === 'nft') return item.isNft === true;
+          if (marketType === 'non_nft') return item.isNft === false;
+          return true;
+        });
+
+        if (!filtered.length) {
+          list.innerHTML = '<div class="empty">По вашему запросу ничего не найдено</div>';
+          return;
+        }
+
+        filtered.forEach(item => {
+          const badge = item.isNft
+            ? '<span class="tag tag-nft">🔮 NFT</span>'
+            : '<span class="tag tag-non-nft">🔹 Без NFT</span>';
+
+          const el = document.createElement('div');
+          el.className = 'card';
+          el.innerHTML = `
+            <div class="card-left">
+              <div class="card-top">
+                <span class="username-title">${item.username}</span>
+                ${badge}
+              </div>
+              <div class="card-desc">${item.desc}</div>
+            </div>
+            <button class="action-btn buy-btn" onclick="buyNow(${item.id}, '${item.username}', ${item.price}, ${item.isNft})">
+              Купить ⭐ ${item.price}
+            </button>
+          `;
+          list.appendChild(el);
+        });
+      } else {
+        const filtered = auctionItems.filter(item =>
+          item.username.toLowerCase().includes(q) || item.desc.toLowerCase().includes(q)
+        );
+
+        if (!filtered.length) {
+          list.innerHTML = '<div class="empty">Активных аукционов нет</div>';
+          return;
+        }
+
+        filtered.forEach(item => {
+          const badge = item.isNft
+            ? '<span class="tag tag-nft">🔮 NFT</span>'
+            : '<span class="tag tag-non-nft">🔹 Без NFT</span>';
+
+          const el = document.createElement('div');
+          el.className = 'card';
+          el.innerHTML = `
+            <div class="card-left">
+              <div class="card-top">
+                <span class="username-title">${item.username}</span>
+                ${badge}
+                <span class="tag tag-timer">⏳ ${item.endsIn}</span>
+              </div>
+              <div class="card-desc">${item.desc}</div>
+              <div class="card-meta">Ставок: ${item.bidsCount} • Мин. шаг: +${item.minStep} ⭐</div>
+            </div>
+            <button class="action-btn bid-btn" onclick="openBidModal(${item.id})">
+              Ставка<br/>⭐ ${item.currentBid}
+            </button>
+          `;
+          list.appendChild(el);
+        });
+      }
+    }
+
+    async function buyNow(id, username, price, isNft) {
+      tg.HapticFeedback.impactOccurred('medium');
+      try {
+        const res = await fetch(`${API_URL}/create-invoice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            item_id: id,
+            username,
+            price,
+            is_nft: isNft,
+            user_id: tg.initDataUnsafe?.user?.id || 0
+          })
+        });
+        const data = await res.json();
+        if (data.invoice_link) {
+          tg.openInvoice(data.invoice_link, (status) => {
+            if (status === 'paid') {
+              tg.showAlert(`Оплата прошла успешно! Сделка по ${username} передана гаранту.`);
+            } else if (status === 'cancelled') {
+              tg.showAlert("Оплата отменена.");
+            }
+          });
+        }
+      } catch (err) {
+        tg.showAlert("Нет связи с сервером. Проверьте работу backend API.");
+      }
+    }
+
+    function openBidModal(auctionId) {
+      const lot = auctionItems.find(a => a.id === auctionId);
+      if (!lot) return;
+      activeAuctionId = auctionId;
+      const minNext = lot.currentBid + lot.minStep;
+
+      document.getElementById('bidTitle').innerText = `Ставка на ${lot.username}`;
+      document.getElementById('bidInfo').innerText = `Текущая ставка: ${lot.currentBid} ⭐ • Минимум: ${minNext} ⭐`;
+      const input = document.getElementById('bidAmount');
+      input.value = minNext;
+      input.min = minNext;
+
+      document.getElementById('bidModal').classList.add('open');
+    }
+
+    async function confirmBid() {
+      const lot = auctionItems.find(a => a.id === activeAuctionId);
+      if (!lot) return;
+      const amount = parseInt(document.getElementById('bidAmount').value, 10);
+      const minRequired = lot.currentBid + lot.minStep;
+
+      if (!amount || amount < minRequired) {
+        tg.showAlert(`Минимальная ставка: ${minRequired} ⭐`);
+        return;
+      }
+
+      // Real loyihada bu yerda backendga POST /api/place-bid yuboriladi
+      lot.currentBid = amount;
+      lot.bidsCount += 1;
+      closeModal('bidModal');
+      render();
+      tg.showAlert(`Ваша ставка ${amount} ⭐ на ${lot.username} принята!`);
+    }
+
+    function openCreateModal() {
+      document.getElementById('createModal').classList.add('open');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+    }
+
+    function toggleAuctionFields() {
+      const format = document.getElementById('lotFormat').value;
+      document.getElementById('durationField').style.display = format === 'auction' ? 'block' : 'none';
+      document.getElementById('priceLabel').innerText = format === 'auction'
+        ? 'Стартовая цена (в Stars ⭐)'
+        : 'Цена (в Stars ⭐)';
+    }
+
+    function submitLot() {
+      const format = document.getElementById('lotFormat').value;
+      const isNft = document.getElementById('lotNftType').value === 'nft';
+      const username = document.getElementById('lotUsername').value.trim();
+      const price = parseInt(document.getElementById('lotPrice').value, 10);
+      const desc = document.getElementById('lotDesc').value.trim() || (isNft ? "NFT юзернейм" : "Обычный юзернейм");
+
+      if (!username.startsWith('@') || !price || price <= 0) {
+        tg.showAlert("Введите корректный @username и сумму в Stars!");
+        return;
+      }
+
+      if (format === 'market') {
+        marketItems.unshift({ id: Date.now(), username, price, isNft, desc });
+        switchSection('market');
+      } else {
+        const hours = parseInt(document.getElementById('lotHours').value, 10) || 24;
+        auctionItems.unshift({
+          id: Date.now(),
+          username,
+          currentBid: price,
+          minStep: 50,
+          isNft,
+          endsIn: `${hours}ч 00м`,
+          bidsCount: 0,
+          desc
+        });
+        switchSection('auction');
+      }
+
+      // Botga yuborish (admin tekshiruvi va bazaga yozish uchun)
+      tg.sendData(JSON.stringify({
+        action: "new_lot",
+        format,
+        is_nft: isNft,
+        username,
+        price,
+        desc
+      }));
+
+      closeModal('createModal');
+      document.getElementById('lotUsername').value = '';
+      document.getElementById('lotPrice').value = '';
+      document.getElementById('lotDesc').value = '';
+      tg.showAlert("Лот добавлен и отправлен на проверку!");
+    }
+
+    render();
+  </script>
+</body>
+</html>
